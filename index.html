@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Audio Recorder</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            margin: 20px;
+        }
+        button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        audio {
+            display: block;
+            margin: 20px auto;
+        }
+        .progress-container {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 10px auto;
+        }
+        .progress-bar {
+            width: 300px;
+            height: 10px;
+            background-color: #ddd;
+            position: relative;
+            cursor: pointer;
+        }
+        .progress-bar div {
+            height: 100%;
+            background-color: #007bff;
+            width: 0;
+        }
+        .time {
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Audio Recorder</h1>
+    <button id="startRecording">Start Recording</button>
+    <button id="stopRecording" disabled>Stop Recording</button>
+    <button id="playRecording" disabled>Play</button>
+    <audio id="audioPlayer" controls style="display: none;"></audio>
+    <div class="progress-container">
+        <div class="progress-bar" id="progressBar">
+            <div></div>
+        </div>
+        <span class="time" id="currentTime">0:00</span>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let audioBlob;
+        let audioUrl;
+        let audioPlayer = document.getElementById('audioPlayer');
+        let progressBar = document.getElementById('progressBar');
+        let progressFill = progressBar.querySelector('div');
+        let currentTimeDisplay = document.getElementById('currentTime');
+        let interval;
+
+        document.getElementById('startRecording').addEventListener('click', async () => {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            mediaRecorder.start();
+            audioChunks = [];
+
+            mediaRecorder.addEventListener('dataavailable', event => {
+                audioChunks.push(event.data);
+            });
+
+            mediaRecorder.addEventListener('stop', () => {
+                audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+                audioUrl = URL.createObjectURL(audioBlob);
+                audioPlayer.src = audioUrl;
+                audioPlayer.style.display = 'block';
+                document.getElementById('playRecording').disabled = false;
+            });
+
+            document.getElementById('startRecording').disabled = true;
+            document.getElementById('stopRecording').disabled = false;
+        });
+
+        document.getElementById('stopRecording').addEventListener('click', () => {
+            mediaRecorder.stop();
+            document.getElementById('startRecording').disabled = false;
+            document.getElementById('stopRecording').disabled = true;
+        });
+
+        document.getElementById('playRecording').addEventListener('click', () => {
+            audioPlayer.play();
+            updateProgressBar();
+        });
+
+        audioPlayer.addEventListener('timeupdate', () => {
+            const currentTime = Math.floor(audioPlayer.currentTime);
+            const minutes = Math.floor(currentTime / 60);
+            const seconds = currentTime % 60;
+            currentTimeDisplay.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            const progress = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+            progressFill.style.width = `${progress}%`;
+        });
+
+        progressBar.addEventListener('click', (e) => {
+            const rect = progressBar.getBoundingClientRect();
+            const offsetX = e.clientX - rect.left;
+            const percentage = offsetX / rect.width;
+            audioPlayer.currentTime = percentage * audioPlayer.duration;
+        });
+
+        function updateProgressBar() {
+            clearInterval(interval);
+            interval = setInterval(() => {
+                if (audioPlayer.paused || audioPlayer.ended) {
+                    clearInterval(interval);
+                }
+            }, 100);
+        }
+    </script>
+</body>
+</html>
